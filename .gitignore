@@ -1,0 +1,21 @@
+# Secrets / env
+.env
+secrets/
+
+# Runtime state / logs
+state/
+*.log
+
+# Python cache / virtualenv
+__pycache__/
+*.pyc
+.venv/
+.venv-scweet/
+
+# Generated report artifacts
+base-alert-report.html
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
