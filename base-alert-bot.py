@@ -1152,12 +1152,12 @@ def scweet_social_line(row, info):
     try:
         cp = subprocess.run([str(py), str(worker), handle], env=child_env, text=True, capture_output=True, timeout=timeout)
         if cp.returncode != 0 or not cp.stdout.strip():
-            return '🐦 Social graph: Scweet belum tersedia / gagal lookup.'
+            return '🐦 Social graph: source unavailable / gagal lookup.'
         data = json.loads(cp.stdout.strip().splitlines()[-1])
     except Exception:
         return '🐦 Social graph: lookup timeout/gagal.'
     if not data.get('ok'):
-        return '🐦 Social graph: Scweet gagal validasi akun/cookie.'
+        return '🐦 Social graph: source validation failed.'
     parts = []
     if 'followers_count' in data and data.get('followers_count') is not None:
         parts.append(f"followers {compact_int(data['followers_count'])}")
