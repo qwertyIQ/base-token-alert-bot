@@ -135,6 +135,39 @@ git remote add origin https://github.com/<username>/<repo-name>.git
 git push -u origin main
 ```
 
+## Suggested GitHub repo name / Nama repo GitHub yang disarankan
+
+- `base-token-alert-bot`
+- `base-alert-bot`
+- `base-token-alert`
+
+## Suggested description / Deskripsi yang disarankan
+
+**English:**
+Alert-only Base token screener that scans GMGN/DexScreener, formats clean Telegram alerts, and keeps secrets out of the public repo.
+
+**Bahasa Indonesia:**
+Screener token Base yang hanya kirim alert, memindai GMGN/DexScreener, merapikan alert Telegram, dan menjaga secret tetap keluar dari repo publik.
+
+## One-command publish helper / Helper publish satu perintah
+
+If you want to push this repo to your own GitHub, use the helper script:
+
+Kalau ingin langsung push repo ini ke GitHub kamu, pakai script helper ini:
+
+```bash
+chmod +x publish-github.sh
+GITHUB_USER=<username-kamu> REPO_NAME=base-token-alert-bot ./publish-github.sh
+```
+
+If you also have a GitHub token and want the script to create the repo automatically, add:
+
+Kalau kamu juga punya GitHub token dan ingin script ini membuat repo otomatis, tambahkan:
+
+```bash
+GITHUB_TOKEN=<github_token> GITHUB_USER=<username-kamu> REPO_NAME=base-token-alert-bot ./publish-github.sh
+```
+
 If you want, I can also prepare a shorter repository description and a release note / changelog section.
 
 Kalau kamu mau, saya juga bisa siapkan deskripsi repo yang lebih singkat dan bagian release note / changelog.
