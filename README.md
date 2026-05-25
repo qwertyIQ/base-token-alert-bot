@@ -1,179 +1,144 @@
 # Base Token Alert Bot
 
-A clean, shareable **alert-only** bot for Base tokens.
+Alert-only Base token scanner focused on fast discovery, quality filtering, and concise Telegram alerts.
 
-This repository is intentionally sanitized for public sharing: no secrets, no runtime state, and no machine-specific absolute paths.
+This project is intentionally separate from Charon.
 
----
+## Overview
 
-## English
+The bot watches the Base chain using a GMGN-first flow, with DexScreener used as supplemental discovery and enrichment.
 
-### What it does
-- Scans Base token candidates via GMGN + DexScreener.
-- Sends Telegram alerts for tokens that pass the filters.
-- Separates **MCap** and **FDV** so the alert is easier to read.
-- Adds milestone follow-ups for tokens that start moving.
-- Keeps the repo portable and safe to publish.
+Features:
+- Base token discovery and alerting
+- Liquidity and quality filters before alerting
+- Honeypot / unknown tax / high tax blocking
+- 100%+ pump / volume surge detection
+- Launchpad and source metadata where available
+- Telegram alerts only, no auto-buy
+- Optional X / smart-follower enrichment with Scweet
+- Threaded follow-up updates for price milestones
 
-### What is included
-- `base-alert-bot.py` — main alert engine
-- `run-loop.sh` — simple loop runner
-- `watchdog.py` — lightweight watchdog for the loop
-- `base-smart-x-accounts.txt` — public Base/KOL X watchlist
-- `.env.example` — safe config template with no secrets
-- `.gitignore` — excludes secrets, logs, state, caches, and build artifacts
+## Project Layout
 
-### What is excluded
-- Real `.env` files
-- API keys
-- X cookies / auth tokens
-- runtime logs
-- runtime state files
-- virtualenvs, caches, `__pycache__`
+- Project root: `/root/base-token-alert`
+- Main bot: `base-alert-bot.py`
+- Social worker: `social_scweet.py`
+- Social worker runner: `social_scweet_worker.py`
+- Watchdog: `watchdog.py`
+- GMGN wallet collector: `collect-gmgn-wallets.py`
+- Local secrets: `/root/base-token-alert/secrets/`
+- Runtime state: `/root/base-token-alert/state/`
 
-### Quick start
-1. Copy `.env.example` to `.env`
-2. Fill in the required values
-3. Run the bot:
+## Requirements
+
+- Python 3.10+
+- A Telegram bot token
+- A Telegram chat ID
+- Network access to GMGN / DexScreener / Telegram
+- Optional: Base RPC URL
+- Optional: Basescan API key
+- Optional: X / Twitter cookie auth for Scweet enrichment
+
+## Install
 
 ```bash
-bash run-loop.sh
+cd /root/base-token-alert
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -r requirements.txt
 ```
 
-Or run a single scan:
+If the project does not yet have a `requirements.txt`, install the packages used by the scripts manually.
+
+## Configuration
+
+Create a `.env` file in the project root.
+
+Minimum config:
+
+```env
+TELEGRAM_BOT_TOKEN=REDACTED
+TELEGRAM_CHAT_ID=REDACTED
+```
+
+Recommended safety and tuning knobs:
+
+```env
+MIN_LIQUIDITY_USD=12000
+MIN_QUALITY_WALLET_LIQUIDITY_USD=12000
+ALERT_THRESHOLD=62
+MAX_FOLLOWUPS_PER_RUN=10
+```
+
+Optional X / Scweet settings:
+
+```env
+SCWEET_ENABLED=true
+SCWEET_FOLLOWER_LIMIT=5000
+SCWEET_CACHE_HOURS=12
+SCWEET_COOKIES_FILE=/root/base-token-alert/secrets/scweet-cookies.json
+```
+
+## Run
+
+Start the bot:
 
 ```bash
+cd /root/base-token-alert
+source .venv/bin/activate
 python3 base-alert-bot.py
 ```
 
-### Environment variables
-See `.env.example` for the full list. The most important ones are:
-
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
-- `GMGN_API_KEY`
-- `MC_MAX_USD`
-- `MIN_LIQUIDITY_USD`
-- `ALERT_THRESHOLD`
-
-### Safety notes
-- This repo is designed to be shared publicly.
-- Paths are portable and resolve from the script location.
-- Before publishing, verify there are no secrets in the tree.
-- If you want to push this to GitHub, add your remote and push `main`.
-
----
-
-## Bahasa Indonesia
-
-### Apa fungsinya
-- Memindai kandidat token Base lewat GMGN + DexScreener.
-- Mengirim alert Telegram untuk token yang lolos filter.
-- Memisahkan **MCap** dan **FDV** supaya alert lebih mudah dibaca.
-- Menambahkan follow-up milestone saat token mulai bergerak.
-- Menjaga repo tetap portable dan aman untuk dibagikan.
-
-### Isi repo
-- `base-alert-bot.py` — mesin alert utama
-- `run-loop.sh` — runner loop sederhana
-- `watchdog.py` — watchdog ringan untuk menjaga loop tetap hidup
-- `base-smart-x-accounts.txt` — watchlist publik akun X Base/KOL
-- `.env.example` — template konfigurasi aman tanpa secret
-- `.gitignore` — mengabaikan secret, log, state, cache, dan artifact build
-
-### Yang tidak ikut disertakan
-- File `.env` asli
-- API key
-- Cookie / auth token X
-- Log runtime
-- File state runtime
-- Virtualenv, cache, `__pycache__`
-
-### Cara cepat pakai
-1. Copy `.env.example` menjadi `.env`
-2. Isi nilai yang dibutuhkan
-3. Jalankan bot:
+Run the social worker separately if needed:
 
 ```bash
-bash run-loop.sh
+cd /root/base-token-alert
+source .venv/bin/activate
+python3 social_scweet_worker.py
 ```
 
-Atau jalankan sekali saja:
+## Verification
+
+Check the bot starts without syntax errors:
 
 ```bash
-python3 base-alert-bot.py
+cd /root/base-token-alert
+python3 -m py_compile base-alert-bot.py social_scweet.py social_scweet_worker.py watchdog.py collect-gmgn-wallets.py
 ```
 
-### Environment variables
-Lihat `.env.example` untuk daftar lengkap. Yang paling penting:
+Watch runtime logs in your deployment method, then confirm:
+- the process is alive
+- alerts are being delivered to Telegram
+- no secret values are printed in logs
 
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
-- `GMGN_API_KEY`
-- `MC_MAX_USD`
-- `MIN_LIQUIDITY_USD`
-- `ALERT_THRESHOLD`
+## Scweet Cookie Setup
 
-### Catatan keamanan
-- Repo ini memang disiapkan untuk dibagikan publik.
-- Path dibuat portable dan mengikuti lokasi file script.
-- Sebelum publish, pastikan tidak ada secret di dalam tree repo.
-- Kalau mau di-push ke GitHub, tambahkan remote lalu push branch `main`.
+Store the X auth cookie locally only:
 
----
+- Path: `/root/base-token-alert/secrets/scweet-cookies.json`
+- File mode: `600`
+- Do not paste the token into chat or logs
 
-## GitHub publish / Publish ke GitHub
+## Deploy on VPS
 
-If you want to publish it manually from this machine, the repo is already ready.
+Typical deployment pattern:
+- run the bot as a `systemd` service
+- keep secrets in `/root/base-token-alert/secrets/`
+- keep runtime state in `/root/base-token-alert/state/`
+- restart and verify after every code change
 
-Kalau ingin publish manual dari mesin ini, repo-nya sudah siap.
+## Publish to GitHub
 
-```bash
-cd /root/base-token-alert-github
-git status --short
-git remote add origin https://github.com/<username>/<repo-name>.git
-git push -u origin main
-```
+Before uploading manually:
+- remove secrets from the repo
+- keep `.env` out of version control
+- keep `secrets/`, `state/`, and log files ignored
+- verify the tree contains no tokens, cookies, or local-only paths that should stay private
 
-## Suggested GitHub repo name / Nama repo GitHub yang disarankan
+## Notes
 
-- `base-token-alert-bot`
-- `base-alert-bot`
-- `base-token-alert`
+- This bot is alert-only and does not place trades.
+- Smart-follower enrichment is optional and should fail gracefully if X scraping is unavailable.
+- The project prefers concise alerts and safe defaults over noisy output.
 
-## Suggested description / Deskripsi yang disarankan
-
-**English:**
-Alert-only Base token screener that scans GMGN/DexScreener, formats clean Telegram alerts, and keeps secrets out of the public repo.
-
-**Bahasa Indonesia:**
-Screener token Base yang hanya kirim alert, memindai GMGN/DexScreener, merapikan alert Telegram, dan menjaga secret tetap keluar dari repo publik.
-
-## One-command publish helper / Helper publish satu perintah
-
-If you want to push this repo to your own GitHub, use the helper script:
-
-Kalau ingin langsung push repo ini ke GitHub kamu, pakai script helper ini:
-
-```bash
-chmod +x publish-github.sh
-GITHUB_USER=<username-kamu> REPO_NAME=base-token-alert-bot ./publish-github.sh
-```
-
-If you also have a GitHub token and want the script to create the repo automatically, add:
-
-Kalau kamu juga punya GitHub token dan ingin script ini membuat repo otomatis, tambahkan:
-
-```bash
-GITHUB_TOKEN=<github_token> GITHUB_USER=<username-kamu> REPO_NAME=base-token-alert-bot ./publish-github.sh
-```
-
-If you want, I can also prepare a shorter repository description and a release note / changelog section.
-
-Kalau kamu mau, saya juga bisa siapkan deskripsi repo yang lebih singkat dan bagian release note / changelog.
-
-## Safety filter tambahan / Extra safety filters
-
-Bot ini sekarang memblokir token yang terdeteksi **honeypot**, **unknown tax**, atau **high tax** sebelum alert dikirim.
-
-This bot now blocks tokens flagged as **honeypot**, **unknown tax**, or **high tax** before sending alerts.
