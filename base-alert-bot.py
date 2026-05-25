@@ -5,7 +5,7 @@ Alert-only scanner for Base tokens. It polls GMGN trending + smart/KOL feeds,
 then supplements with DexScreener latest Base token profiles/boosts so new tokens
 with strong early pumps are not ignored. No trading side effects.
 """
-import html, json, os, subprocess, time, urllib.parse, urllib.request
+import html, json, os, re, subprocess, time, urllib.parse, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -65,6 +65,83 @@ def deep_num(obj, *paths, default=0.0):
             if val > 0:
                 return val
     return default
+
+
+def _walk_items(obj, prefix=''):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path = f"{prefix}.{k}" if prefix else str(k)
+            yield path, k, v
+            yield from _walk_items(v, path)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            path = f"{prefix}[{i}]" if prefix else f"[{i}]"
+            yield from _walk_items(v, path)
+
+
+def _tax_pct_value(val):
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, (int, float)):
+        n = float(val)
+    else:
+        s = str(val).strip().replace('%', '').replace(',', '')
+        m = re.search(r'-?\d+(?:\.\d+)?', s)
+        if not m:
+            return None
+        try:
+            n = float(m.group(0))
+        except Exception:
+            return None
+    if 0 < n <= 1 and not str(val).strip().endswith('%'):
+        n *= 100.0
+    return n if n >= 0 else None
+
+
+def tax_profile(*objs):
+    """Return token tax/honeypot signals extracted from nested GMGN/Dex fields."""
+    out = {
+        'buy_tax': None,
+        'sell_tax': None,
+        'total_tax': None,
+        'honeypot': None,
+        'unknown': False,
+        'has_tax_fields': False,
+    }
+    for obj in objs:
+        if not isinstance(obj, (dict, list)):
+            continue
+        for path, key, val in _walk_items(obj):
+            lk = f'{path} {key}'.lower()
+            sval = str(val).strip().lower()
+            if 'honeypot' in lk:
+                out['has_tax_fields'] = True
+                if isinstance(val, bool):
+                    out['honeypot'] = out['honeypot'] or val
+                elif sval in ('true', 'yes', '1', 'y'):
+                    out['honeypot'] = True
+                elif sval in ('false', 'no', '0', 'n') and out['honeypot'] is None:
+                    out['honeypot'] = False
+                elif sval in ('unknown', 'n/a', 'na', 'null', 'none', '', '-'):
+                    out['unknown'] = True
+            if 'tax' in lk or 'fee' in lk:
+                out['has_tax_fields'] = True
+                if sval in ('unknown', 'n/a', 'na', 'null', 'none', '', '-', 'tbd'):
+                    out['unknown'] = True
+                n = _tax_pct_value(val)
+                if n is None:
+                    continue
+                if ('buy' in lk or 'buytax' in lk or 'buyside' in lk) and out['buy_tax'] is None:
+                    out['buy_tax'] = n
+                elif ('sell' in lk or 'selltax' in lk or 'sellside' in lk) and out['sell_tax'] is None:
+                    out['sell_tax'] = n
+                elif out['total_tax'] is None and ('total' in lk or 'combined' in lk or 'sum' in lk):
+                    out['total_tax'] = n
+    if out['has_tax_fields'] and out['buy_tax'] is None and out['sell_tax'] is None and not out['unknown']:
+        out['unknown'] = True
+    if out['buy_tax'] is not None and out['sell_tax'] is not None and out['total_tax'] is None:
+        out['total_tax'] = out['buy_tax'] + out['sell_tax']
+    return out
 
 
 def rows_from(data):
@@ -1093,8 +1170,24 @@ def should_alert(row, info, hits, conf, env):
     pump_runner = chg >= fnum(env.get('RUNNER_MIN_PUMP_PERCENT'), 100)
     activity_ok = vol >= fnum(env.get('NEW_TOKEN_MIN_VOLUME_USD'), 1000) or swaps >= fnum(env.get('NEW_TOKEN_MIN_SWAPS'), 20)
     strong_activity = vol >= fnum(env.get('RUNNER_MIN_VOLUME_USD'), 5000) or swaps >= fnum(env.get('RUNNER_MIN_SWAPS'), 50)
+    tax = tax_profile(row, info)
+    block_unknown_tax = str(env.get('BLOCK_UNKNOWN_TAX', 'true')).lower() in ('1', 'true', 'yes', 'on')
+    max_buy_tax = fnum(env.get('MAX_BUY_TAX_PCT'), 10)
+    max_sell_tax = fnum(env.get('MAX_SELL_TAX_PCT'), 10)
+    max_total_tax = fnum(env.get('MAX_TOTAL_TAX_PCT'), 15)
 
     if not mcap_ok:
+        return False
+    # Hard safety gate: block honeypots / unknown tax / excessive tax before any alert.
+    if tax.get('honeypot') is True:
+        return False
+    if tax.get('unknown') and block_unknown_tax:
+        return False
+    if tax.get('buy_tax') is not None and tax['buy_tax'] > max_buy_tax:
+        return False
+    if tax.get('sell_tax') is not None and tax['sell_tax'] > max_sell_tax:
+        return False
+    if tax.get('total_tax') is not None and tax['total_tax'] > max_total_tax:
         return False
     # Never alert tokens with extremely weak/missing liquidity; confidence from
     # pump/social alone is dangerous on Base because slippage and rug risk dominate.
